@@ -4,34 +4,11 @@ library(haven)
 library(data.table)
 library(writexl)
 
-#Function to apply name formats for farm types
-# apply_type_formats <- function(table_name) {
-#   setkey(setDT(table_name),census_type)
-#   table_name[setDT(census_type_tab),farmtype:=i.census_type_words]
-#   return(table_name)
-# }
-#Variables for farmtype names and numbering
-# fbs_type_numbers <- c(1:9)
-# fbs_type_words <- c("Cereals","General Cropping","Dairy","LFA Sheep","LFA Cattle","LFA Cattle and Sheep","Lowland Livestock","Mixed","All farm types")
-# fbs_type_tab <- data.frame(fbs_type_numbers, fbs_type_words)
-# census_type_numbers <- c(1:16)
-# census_type_words <- c("Cereals","General Cropping","Dairy","LFA Sheep","LFA Cattle","LFA Cattle and Sheep","Lowland Livestock","Mixed",
-#                        "Specialist horticulture & permanent crops", "Specialist pigs", "Specialist poultry", "General cropping - forage", 
-#                        "Unclassified", "All farm types", "FBS farm types only", "FBS farm types only, and meeting FBS thresholds")
-# census_type_tab <- data.frame(census_type_numbers, census_type_words)
 
-#Identify the locations and names of the datasets to be imported
-
-# year = 2021
 year_range = 2020:2021
-# desired_variables <- c("item40")
 census_directory_path <- '//s0177a/sasdata1/ags/census/agscens/'
-# FBS_directory_path <- '//s0177a/sasdata1/ags/fas/'
-# census_data_file <- paste0("june",year,".sas7bdat")
-# FBS_data_file <- paste0("so_y", datayear, "_fa",".sas7bdat")
 
-## Read in the census data for the relevant crop year. The code first looks in the project folder and reads in the data from there if the
-## file has already been downloaded. If it's not found there, it copies the file from the SAS drive then reads it in.
+#Function to check if a dataset exists in the working directory, then either import it if so, or download it then import it.
 read_sas2 <- function(directory, filename){
   census_data <- tryCatch(
     {
@@ -44,6 +21,7 @@ read_sas2 <- function(directory, filename){
     }
   )
 }
+# Function which calls above function, then does minor cleaning
 import_sas <-function(directory_path, filename) {
   dataset <- read_sas2(directory_path, filename)
   names(dataset) <- tolower(names(dataset))
@@ -52,11 +30,11 @@ import_sas <-function(directory_path, filename) {
   }
   return(dataset)
 }
-# check <- import_sas(census_directory_path, census_data_file)
 
+#Create all_years variable, which will be appended to in the for loop.
 all_years <- NULL
 for (year in year_range){
-    census_data_file <- paste0("june", year, ".sas7bdat")
+    census_data_file <- paste0("june", year-2000, ".sas7bdat")
     single_year <- import_sas(census_directory_path, census_data_file) %>% 
       mutate(total_fruit = item36 + item37,
              total_grass = item2321+item2322,
