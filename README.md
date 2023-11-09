@@ -8,7 +8,7 @@ For each group I would like:
 *	Number of holdings
 *	Total crop area
 *	Total grass area (excluding rough grazing)
-*	Total H10
+*	Total H10 (farmed area)
 *	Total sole rights rough grazing area
 *	Please provide for 2020, 2021 and 2022.  Please let me know when 2023 would be available from.
 

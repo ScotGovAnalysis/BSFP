@@ -33,28 +33,33 @@ import_sas <-function(directory_path, filename) {
 
 #Create all_years variable, which will be appended to in the for loop.
 all_years <- NULL
+#For loop to 
 for (year in year_range){
-    census_data_file <- paste0("june", year-2000, ".sas7bdat")
-    single_year <- import_sas(census_directory_path, census_data_file) %>% 
+  #Specify the filename for the current year - format is, e.g, "June21"
+  census_data_file <- paste0("june", year-2000, ".sas7bdat")
+  #Use the import_sas function defined above to read in a single year's census data
+  single_year <- import_sas(census_directory_path, census_data_file) %>% 
+    mutate(
       #total_fruit = soft fruit + orchard fruit
-      mutate(total_fruit = item36 + item37,
-             #total grass = grass under 5 years + grass over 5 years
-             total_grass = item2321+item2322,
-             cropyear = year) %>% 
-      select(parish, holding, cropyear,
-             total_fruit,
-             total_grass,
-             total_crops_and_fallow = item40,
-             total_ornamentals = item82,
-             total_glasshouse = item1943,
-             rough_grazing = item47) %>% 
-      rowwise() %>% 
-      #ornamentals appear to be included in total_crops_and_fallow already
-      mutate(total_relevant_area = sum(total_crops_and_fallow, total_fruit, total_glasshouse, total_grass, na.rm=T)) %>% 
-      #Add a variable flagging whether 
-      mutate(major_minor_flag = ifelse(total_relevant_area < 20, "minor", "major"))
-    all_years <- all_years %>% 
-      bind_rows(single_year)
+      total_fruit = item36 + item37,
+      #total grass = grass under 5 years + grass over 5 years
+      total_grass = item2321+item2322,
+      cropyear = year) %>% 
+    select(parish, holding, cropyear,
+           total_fruit,
+           total_grass,
+           total_crops_and_fallow = item40,
+           total_ornamentals = item82,
+           total_glasshouse = item1943,
+           rough_grazing = item47) %>% 
+    rowwise() %>% 
+    #ornamentals appear to be included in total_crops_and_fallow already, so don't need to be included in the total here
+    mutate(total_relevant_area = sum(total_crops_and_fallow, total_fruit, total_glasshouse, total_grass, na.rm=T)) %>% 
+    #Add a variable flagging whether total crop and grass area is above or below 20ha
+    mutate(major_minor_flag = ifelse(total_relevant_area < 20, "minor", "major"))
+  #Append the single year of data to the all_years dataset
+  all_years <- all_years %>% 
+    bind_rows(single_year)
 }
 
 #Summarise the key stats for each year and major/minor group
