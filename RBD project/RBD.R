@@ -1,9 +1,10 @@
 #Code for allocating Scottish farms in the fertiliser survey to river basin districts.
 #Do this from their CPH.
+setwd("C:/Users/u449906/Documents/R/repos/BSFP/RBD project")
 
 #Manual inputs. 
 #Specify the file, and tab, with the list of CPHs included in the survey.
-input_file <- "RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xls"
+input_file <- "Input data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xls"
 input_file_sheet <- "RESAS Main contacts"
 #Specify the year of the sample. This is used in naming the output CSV.
 Year <- 2022
@@ -20,7 +21,8 @@ library(readxl)
 source("GR Functions.R")
 
 #Read the shapefile with the boundaries of the river basin districts
-RBDs <- st_read("data/WFD_River_Basin_Districts_Cycle_2.shp") %>% 
+#The file came from here: https://www.data.gov.uk/dataset/368ae5fb-65a1-4f19-98ff-a06a1b86b3fe/wfd-river-basin-districts-cycle-2
+RBDs <- st_read("Input data/Shapefiles/WFD_River_Basin_Districts_Cycle_2.shp") %>% 
   #27700 is the coordinate reference system ID for the OS grid.
   st_set_crs("27700")
 
@@ -30,7 +32,7 @@ Solway_Tweed <- RBDs %>%
   st_set_crs("27700")
 
 #For plotting the map at the end, read in an outline of Great Britain.
-GB_outline <- st_read("bdline_essh_gb/Data/GB/high_water_polyline.shp") %>% 
+GB_outline <- st_read("Input data/Shapefiles/CTRY_DEC_2022_GB_BFC_v2_c.shp")%>% 
   st_set_crs("27700")
 
 
@@ -103,23 +105,34 @@ BSFP_Scotland_RBD_crs <- BSFP_Scotland_RBD %>%
 
 #Plot a map of Scotland, then add the RBD boundaries and BSFP holdings. Colour code holdings based on RBD.
 plot(GB_outline$geometry, ylim=c(525000,1220531))
-plot(RBDs$geometry, add=TRUE)
+plot(Solway_Tweed$geometry, type="l", col="green", add=TRUE)
 plot(BSFP_Scotland_RBD_crs[within], col="blue", pch=19, add=TRUE)
 plot(BSFP_Scotland_RBD_crs[outwith], col="red", pch=19, add=TRUE)
 
 #Create final table for sending to Defra, and export as csv
 BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD %>% 
   select(cph, RBD)
-write.csv(BSFP_Scotland_RBD_Defra, file=paste0("BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
+write.csv(BSFP_Scotland_RBD_Defra, file=paste0("Output_data/BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
 
 #For QA - find holdings with the grid reference NN000000, which seems to be a default option somewhere.
 Grid_ref_QA <- BSFP_sample %>% 
   filter(grid_reference=="NN000000")
-# Add in any farms with no grid reference, or badly formatted grid reference, in the census dataset
+#Find farms not within the GB_outline boundary
+notinthesea = lengths(st_intersects(BSFP_geometry, GB_outline)) > 0
+inthesea = !notinthesea
+inthesea_QA <- BSFP_sample %>% 
+  mutate(inthesea=inthesea) %>% 
+  filter(inthesea==TRUE) %>% 
+  select(-inthesea)
+# Add in any farms with no grid reference, or badly formatted grid reference, or which may be in the sea in the census dataset
 Missing_data <- BSFP_sample_raw %>% 
   anti_join(BSFP_sample, by=c("parish", "holding")) %>% 
-  bind_rows(Grid_ref_QA) %>% 
+  bind_rows(Grid_ref_QA) %>%
+  bind_rows(inthesea_QA) %>% 
   left_join(Census_address_data, by=c("parish", "holding"))
+
+#Add inthesea holdings as yellow dots on the plot
+plot(BSFP_Scotland_RBD_crs[inthesea], col="yellow", pch=19, add=TRUE)
   
 #Print a message if there are any manual checks needed
 if(nrow(Missing_data>0)){
