@@ -2,9 +2,10 @@
 ##Functions from https://github.com/cvitolo/rnrfa/blob/master/R/osg_parse.R
 
 osg_parse <- function(grid_refs, coord_system = c("BNG", "WGS84")) {
-  
+  grid_refs=Census_address_data_process$grid_reference
+  coord_system = "BNG"
   grid_refs <- toupper(as.character(grid_refs))
-  coord_system <- match.arg(coord_system)
+  # coord_system <- match.arg(coord_system)
   
   epsg_out <- unname(c("BNG" = 27700, "WGS84" = 4326)[coord_system])
   names.out <- list("BNG" = c("easting", "northing"),
