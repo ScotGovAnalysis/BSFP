@@ -51,3 +51,5 @@ rsconnect/
 #Data files
 *.csv
 *.sas7bdat
+*.shp
+*.xls

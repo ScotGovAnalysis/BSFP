@@ -1,5 +1,5 @@
 
-##Functions from https://github.com/cvitolo/rnrfa/blob/master/R/osg_parse.R
+##Functions adapted from https://github.com/cvitolo/rnrfa/blob/master/R/osg_parse.R
 
 osg_parse <- function(grid_refs, coord_system = c("BNG", "WGS84")) {
   grid_refs=Census_address_data_process$grid_reference
