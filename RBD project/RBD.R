@@ -5,7 +5,7 @@ setwd("C:/Users/u449906/Documents/R/repos/BSFP/RBD project")
 #Manual inputs. 
 #Specify the file, and tab, with the list of CPHs included in the survey.
 input_file <- "Input data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xls"
-input_file_sheet <- "RESAS Main contacts"
+input_file_sheets <- c("RESAS Main contacts", "RESAS Reserve 1","RESAS Reserve 2","RESAS Reserve 3")
 #Specify the year of the sample. This is used in naming the output CSV.
 Year <- 2022
 #Specify the census SAS dataset used to get the grid references.
@@ -32,9 +32,12 @@ Solway_Tweed <- RBDs %>%
   st_set_crs("27700")
 
 #For plotting the map at the end, read in an outline of Great Britain.
-GB_outline <- st_read("Input data/Shapefiles/CTRY_DEC_2022_GB_BFC_v2_c.shp")%>% 
+# GB_outline <- st_read("Input data/Shapefiles/CTRY_DEC_2022_GB_BFC_v2_c.shp")%>% 
+#   st_set_crs("27700")
+#Similarly, Scotland outline (file from:https://geoportal.statistics.gov.uk/datasets/ons::nuts1-jan-2018-ultra-generalised-clipped-boundaries-in-the-uk/explore) :
+Scotland_outline <- st_read("Input data/Shapefiles/NUTS1_Jan_2018_UGCB_in_the_UK.shp") %>% 
+  filter(nuts118nm=="Scotland") %>% 
   st_set_crs("27700")
-
 
 ##Get the grid references for all census farms
 #Read in the census address file. First check if it's in the working directory, and then download it if it isn't.
@@ -66,21 +69,33 @@ Census_address_data_process <- Census_address_data_process %>%
   mutate(eastings = osg_parse(grid_reference)$easting,
          northings = osg_parse(grid_reference)$northing)
 
-
 #Read in the CPH data for the farms in the survey sample
-BSFP_sample_raw <- read_xls(input_file, sheet=input_file_sheet) %>% 
+#Do for each input sheet (main/reserves) in turn, and append to main list
+BSFP_sample_raw <- NULL
+for (input_sheet in input_file_sheets){
+  BSFP_sample_raw_single <- read_xls(input_file, sheet=input_sheet)
   #Get parish and holding from the CPH number
-  mutate(parish=as.numeric(substr(cph,3,5)),
-         holding=as.numeric(substr(cph,6,9)))
+  if("reservecph" %in% colnames(BSFP_sample_raw_single)){
+    BSFP_sample_raw_single <- BSFP_sample_raw_single %>% 
+    mutate(parish=as.numeric(substr(reservecph,3,5)),
+           holding=as.numeric(substr(reservecph,6,9)),
+           cph=reservecph,
+           main_reserve="reserve")
+  } else {
+    BSFP_sample_raw_single <- BSFP_sample_raw_single %>% 
+    mutate(parish=as.numeric(substr(cph,3,5)),
+           holding=as.numeric(substr(cph,6,9)),
+           main_reserve="main")
+  }
+  BSFP_sample_raw <- BSFP_sample_raw %>% 
+    bind_rows(BSFP_sample_raw_single)
+}
+
 #Join the BSFP sample with the census address. Inner, rather than left, join so that holdings with missing data aren't included.
 #We'll need to check missing data holdings manually later.
 BSFP_sample <- BSFP_sample_raw %>% 
   select(parish, holding, cph) %>% 
   inner_join(Census_address_data_process, by=c("parish", "holding"))
-
-
-
-
 
 ##Check and plot holdings within/outiwth Solway/Tweed
 #Use functions from the st package to format the eastings and northings into the appropriate format.
@@ -103,40 +118,45 @@ BSFP_Scotland_RBD_crs <- BSFP_Scotland_RBD %>%
   st_as_sf(coords = c("eastings", "northings")) %>% 
   st_geometry()
 
-#Plot a map of Scotland, then add the RBD boundaries and BSFP holdings. Colour code holdings based on RBD.
-plot(GB_outline$geometry, ylim=c(525000,1220531))
-plot(Solway_Tweed$geometry, type="l", col="green", add=TRUE)
-plot(BSFP_Scotland_RBD_crs[within], col="blue", pch=19, add=TRUE)
-plot(BSFP_Scotland_RBD_crs[outwith], col="red", pch=19, add=TRUE)
 
 #Create final table for sending to Defra, and export as csv
 BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD %>% 
   select(cph, RBD)
-write.csv(BSFP_Scotland_RBD_Defra, file=paste0("Output_data/BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
+#Add the farms with missing grid reference data, defaulting to "Scotland" RBD
+Missing_data_add <- BSFP_sample_raw %>% 
+  anti_join(BSFP_sample, by=c("parish", "holding")) %>% 
+  select(cph) %>% 
+  mutate(RBD="Scotland") 
+BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD_Defra %>% 
+  bind_rows(Missing_data_add)
+write.csv(BSFP_Scotland_RBD_Defra, file=paste0("Output data/BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
 
 #For QA - find holdings with the grid reference NN000000, which seems to be a default option somewhere.
 Grid_ref_QA <- BSFP_sample %>% 
   filter(grid_reference=="NN000000")
 #Find farms not within the GB_outline boundary
-notinthesea = lengths(st_intersects(BSFP_geometry, GB_outline)) > 0
-inthesea = !notinthesea
-inthesea_QA <- BSFP_sample %>% 
-  mutate(inthesea=inthesea) %>% 
-  filter(inthesea==TRUE) %>% 
-  select(-inthesea)
+in_Scotland = lengths(st_intersects(BSFP_geometry, Scotland_outline)) > 0
+not_in_Scotland = !in_Scotland
+outwith_Scotland_QA <- BSFP_sample %>% 
+  mutate(outwith_Scotland=not_in_Scotland) %>% 
+  filter(outwith_Scotland==TRUE)
 # Add in any farms with no grid reference, or badly formatted grid reference, or which may be in the sea in the census dataset
 Missing_data <- BSFP_sample_raw %>% 
   anti_join(BSFP_sample, by=c("parish", "holding")) %>% 
   bind_rows(Grid_ref_QA) %>%
-  bind_rows(inthesea_QA) %>% 
+  bind_rows(outwith_Scotland_QA) %>% 
   left_join(Census_address_data, by=c("parish", "holding"))
 
-#Add inthesea holdings as yellow dots on the plot
-plot(BSFP_Scotland_RBD_crs[inthesea], col="yellow", pch=19, add=TRUE)
-  
+#Plot a map of Scotland, then add the RBD boundaries and BSFP holdings. Colour code holdings based on RBD.
+plot(Scotland_outline$geometry)
+plot(Solway_Tweed$geometry, type="l", col="green", add=TRUE)
+plot(BSFP_Scotland_RBD_crs[within], col="blue", pch=19, add=TRUE)
+plot(BSFP_Scotland_RBD_crs[outwith], col="orange", pch=19, add=TRUE)
+plot(BSFP_Scotland_RBD_crs[not_in_Scotland], col="red", pch=19, add=TRUE)
+
 #Print a message if there are any manual checks needed
 if(nrow(Missing_data>0)){
   message("Manually check the locations of farms in the Missing_data data frame.")
-  message("Either they are missing from the census address file, or the census says their grid reference is NN000000, which is somewhat unlikely!")
-  message("Check, and add/edit the output csv directly before sending to Defra")
+  message("Either they are missing from the census address file, or the census says their grid reference is NN000000 or it is in the sea somewhere which is somewhat unlikely!")
+  message("Check, and edit the output csv directly before sending to Defra")
 }
