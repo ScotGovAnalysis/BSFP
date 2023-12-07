@@ -3,8 +3,10 @@
 setwd("C:/Users/u449906/Documents/R/repos/BSFP/RBD project")
 
 #Manual inputs. 
-#Specify the file, and tab, with the list of CPHs included in the survey.
-input_file <- "Input data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xls"
+#Specify the file, and tabs, with the lists of CPHs included in the survey. Ask the census team for this file.
+#Input file needs to be an xlsx. Manually re-save if this isn't the case.
+input_file <- "Input data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xlsx"
+output_file <- "Output data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xlsx"
 input_file_sheets <- c("RESAS Main contacts", "RESAS Reserve 1","RESAS Reserve 2","RESAS Reserve 3")
 #Specify the year of the sample. This is used in naming the output CSV.
 Year <- 2022
@@ -131,6 +133,7 @@ BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD_Defra %>%
   bind_rows(Missing_data_add)
 write.csv(BSFP_Scotland_RBD_Defra, file=paste0("Output data/BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
 
+
 #For QA - find holdings with the grid reference NN000000, which seems to be a default option somewhere.
 Grid_ref_QA <- BSFP_sample %>% 
   filter(grid_reference=="NN000000")
@@ -160,3 +163,9 @@ if(nrow(Missing_data>0)){
   message("Either they are missing from the census address file, or the census says their grid reference is NN000000 or it is in the sea somewhere which is somewhat unlikely!")
   message("Check, and edit the output csv directly before sending to Defra")
 }
+
+#Create the actual output file by loading the input file, appending the RBD sheet and writing to the output folder
+workbook <- loadWorkbook(input_file)
+addWorksheet(wb=workbook, "RBDs")
+writeData(workbook, "RBDs", BSFP_Scotland_RBD_Defra)
+saveWorkbook(wb = workbook, file = output_file, overwrite = TRUE)
