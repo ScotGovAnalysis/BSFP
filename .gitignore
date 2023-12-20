@@ -53,4 +53,4 @@ rsconnect/
 *.sas7bdat
 *Shapefiles*
 *.shp
-*.xls
+*.xls*

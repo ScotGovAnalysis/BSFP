@@ -1,6 +1,12 @@
 # BSFP
 
-Code for a data request from Defra's BSFP team.
+This repository contains R code for two projects related to the British Survey of Fertiliser Practice (BSFP):
+
+* Minor holdings
+* River basin districts (RBD)
+
+# Minor holdings
+Code for a data request from Defra's BSFP team. The June census team within Resas can provide additional data/information to help.
 
 The specifications for the request are:
 Split into two groups: those holdings with >= 20ha total crops + grass and those with <20ha total crops + grass.  Grass to exclude rough grazing.  
@@ -21,3 +27,6 @@ D = ornamentals
 F = Glasshouse
 G1 = grass <5 years
 G2 = grass >5 years
+
+# River basin districts
+For each Scottish holding in the BSFP, identify whether it is in the Solway-Tweed or Rest of Scotland RBD, and perform some basic QA.
