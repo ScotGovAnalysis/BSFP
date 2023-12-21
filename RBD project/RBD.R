@@ -1,6 +1,6 @@
 #Code for allocating Scottish farms in the fertiliser survey to river basin districts.
 #Do this from their CPH.
-setwd("C:/Users/u449906/Documents/R/repos/BSFP/RBD project")
+setwd("RBD project")
 
 #Manual inputs. 
 #Specify the file, and tabs, with the lists of CPHs included in the survey. Ask the census team for this file.
@@ -11,7 +11,9 @@ input_file_sheets <- c("RESAS Main contacts", "RESAS Reserve 1","RESAS Reserve 2
 #Specify the year of the sample. This is used in naming the output CSV.
 Year <- 2022
 #Specify the census SAS dataset used to get the grid references.
-agscensuspath <- '//s0177a/sasdata1/ags/census/agscens/'
+#Use an environment variable to specify the census data paths.
+#See https://csgillespie.github.io/efficientR/set-up.html#renviron
+agscensuspath <- Sys.getenv("Census_directory_path")
 Census_address_data_file <- "address_email_04nov21.sas7bdat"
 
 ##Packages used. sf is for GIS-style work.

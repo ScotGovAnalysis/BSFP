@@ -1,3 +1,4 @@
+setwd("Minor holdings project")
 ##Import packages
 library(tidyverse)
 library(haven)
@@ -6,8 +7,10 @@ library(writexl)
 
 #Years of interest. Would ideally extend to 2022 and 2023, but unsure of the right datasets to use.
 year_range = 2020:2022
-census_directory_path <- '//s0177a/sasdata1/ags/census/agscens/'
-agstemp_path <- '//s0177a/sasdata1/ags/census/agstemp/'
+#Use an environment variable to specify the census data paths.
+#See https://csgillespie.github.io/efficientR/set-up.html#renviron
+census_directory_path <- Sys.getenv("Census_directory_path")
+agstemp_path <- Sys.getenv("Agstemp_directory_path")
 
 #Function to check if a dataset exists in the working directory, then either read it if so, or download it then read it.
 read_sas2 <- function(directory, filename){
