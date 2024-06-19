@@ -6,21 +6,25 @@ setwd("RBD project")
 #Specify the file, and tabs, with the lists of CPHs included in the survey. Ask the census team for this file.
 #Input file needs to be an xlsx. Manually re-save if this isn't the case.
 input_file <- "Input data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xlsx"
-output_file <- "Output data/RESAS - DATA GOVERNANCE - BSFP 2022 - SAMPLE SENT  - May 2022.xlsx"
 input_file_sheets <- c("RESAS Main contacts", "RESAS Reserve 1","RESAS Reserve 2","RESAS Reserve 3")
-#Specify the year of the sample. This is used in naming the output CSV.
+#Specify the year of the sample (should match the year in the input file name. This is used in naming the output CSV.
 Year <- 2022
 #Specify the census SAS dataset used to get the grid references.
-#Use an environment variable to specify the census data paths.
-#See https://csgillespie.github.io/efficientR/set-up.html#renviron
+#Use an environment variable to specify the census data paths. See https://csgillespie.github.io/efficientR/set-up.html#renviron
 agscensuspath <- Sys.getenv("Census_directory_path")
 Census_address_data_file <- "address_email_04nov21.sas7bdat"
+
+#The output file will be the input file with an extra sheet for RBD data.
+#It therefore gets the same name, but is in the output folder.
+output_file <- gsub("Input data", "Output data", input_file)
+
 
 ##Packages used. sf is for GIS-style work.
 library(sf)
 library(tidyverse)
 library(haven)
 library(readxl)
+library(openxlsx)
 #Call in the functions used for tidying grid references.
 source("GR Functions.R")
 
@@ -77,7 +81,7 @@ Census_address_data_process <- Census_address_data_process %>%
 #Do for each input sheet (main/reserves) in turn, and append to main list
 BSFP_sample_raw <- NULL
 for (input_sheet in input_file_sheets){
-  BSFP_sample_raw_single <- read_xls(input_file, sheet=input_sheet)
+  BSFP_sample_raw_single <- read_xlsx(input_file, sheet=input_sheet)
   #Get parish and holding from the CPH number
   if("reservecph" %in% colnames(BSFP_sample_raw_single)){
     BSFP_sample_raw_single <- BSFP_sample_raw_single %>% 
@@ -123,7 +127,7 @@ BSFP_Scotland_RBD_crs <- BSFP_Scotland_RBD %>%
   st_geometry()
 
 
-#Create final table for sending to Defra, and export as csv
+#Create final table for sending to Defra
 BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD %>% 
   select(cph, RBD)
 #Add the farms with missing grid reference data, defaulting to "Scotland" RBD
@@ -133,6 +137,8 @@ Missing_data_add <- BSFP_sample_raw %>%
   mutate(RBD="Scotland") 
 BSFP_Scotland_RBD_Defra <- BSFP_Scotland_RBD_Defra %>% 
   bind_rows(Missing_data_add)
+##This line exports a CSV with just the RBD data. It might be useful, but the actual output file for Defra 
+#is the xlsx file created further down, one sheet of which will have the RBD data.
 write.csv(BSFP_Scotland_RBD_Defra, file=paste0("Output data/BSFP_Scotland_RBD_",Year,".csv"), row.names = FALSE)
 
 
@@ -153,6 +159,10 @@ Missing_data <- BSFP_sample_raw %>%
   left_join(Census_address_data, by=c("parish", "holding"))
 
 #Plot a map of Scotland, then add the RBD boundaries and BSFP holdings. Colour code holdings based on RBD.
+#Blue farms are those in the Solway-Tweed RBD
+#Orange farms are those not in the Solway-Tweed RBD
+#Red farms are those which are outwith Scotland (including in the sea).
+#The red group is a subset of the orange group. 
 plot(Scotland_outline$geometry)
 plot(Solway_Tweed$geometry, type="l", col="green", add=TRUE)
 plot(BSFP_Scotland_RBD_crs[within], col="blue", pch=19, add=TRUE)
@@ -164,9 +174,11 @@ if(nrow(Missing_data>0)){
   message("Manually check the locations of farms in the Missing_data data frame.")
   message("Either they are missing from the census address file, or the census says their grid reference is NN000000 or it is in the sea somewhere which is somewhat unlikely!")
   message("Check, and edit the output csv directly before sending to Defra")
+  message("This Agricultural parishes map is useful for checking: https://www.gov.scot/publications/agriculture-maps/")
 }
 
-#Create the actual output file by loading the input file, appending the RBD sheet and writing to the output folder
+#Create the actual output file by loading the input file, appending the RBD sheet and writing to the output folder.
+#This is what we send to Defra.
 workbook <- loadWorkbook(input_file)
 addWorksheet(wb=workbook, "RBDs")
 writeData(workbook, "RBDs", BSFP_Scotland_RBD_Defra)
